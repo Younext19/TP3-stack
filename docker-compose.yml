@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  db:
+    container_name: shop-db
+    image: postgres:15
+    hostname: "psql_docker"
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "1234"
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+      - ./shop-server/sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
+      - ./shop-server/sql/fill_tables.sql:/docker-entrypoint-initdb.d/fill_tables.sql
+    networks:
+      - postgres
+    
+  elasticsearch:
+    container_name: shop-elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.12.1
+    hostname: "elasticsearch_docker"
+    environment:
+      discovery.type: single-node
+    ports:
+      - "9200:9200"
+    networks:
+      - postgres
+
+  api:
+    depends_on:
+      - "db"
+      - "elasticsearch"
+    container_name: shop-server
+    build: ./shop-server
+    ports:
+      - "8080:8080"
+    networks:
+      - postgres
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/postgres
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=1234
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+
+  front:
+    container_name: shop-client
+    build: ./shop-client
+    ports:
+      - "4200:4200"
+
+networks:
+  postgres:
+    driver: bridge
+
+volumes:
+  postgres:
